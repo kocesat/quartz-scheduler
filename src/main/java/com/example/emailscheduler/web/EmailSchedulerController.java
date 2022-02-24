@@ -2,9 +2,13 @@ package com.example.emailscheduler.web;
 
 import com.example.emailscheduler.payload.EmailRequest;
 import com.example.emailscheduler.payload.EmailResponse;
-import com.example.emailscheduler.quartz.job.EmailJob;
+import com.example.emailscheduler.quartz.utils.JobDetailBuilder;
+import com.example.emailscheduler.quartz.utils.TriggerBuilder;
 import lombok.extern.slf4j.Slf4j;
-import org.quartz.*;
+import org.quartz.JobDetail;
+import org.quartz.Scheduler;
+import org.quartz.SchedulerException;
+import org.quartz.Trigger;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -14,12 +18,13 @@ import org.springframework.web.bind.annotation.RestController;
 
 import javax.validation.Valid;
 import java.time.ZonedDateTime;
-import java.util.Date;
-import java.util.UUID;
 
 @Slf4j
 @RestController
 public class EmailSchedulerController {
+
+//    @Autowired
+//    private SchedulerFactoryBean schedulerFactoryBean;
 
     @Autowired
     private Scheduler scheduler;
@@ -34,8 +39,9 @@ public class EmailSchedulerController {
                         .badRequest()
                         .body(emailResponse);
             }
-            JobDetail jobDetail = buildJobDetail(emailRequest);
-            Trigger trigger = buildTrigger(jobDetail, dateTime);
+
+            JobDetail jobDetail = JobDetailBuilder.buildJobDetail(emailRequest);
+            Trigger trigger = TriggerBuilder.buildTrigger(jobDetail, dateTime);
 
             scheduler.scheduleJob(jobDetail, trigger);
 
@@ -57,28 +63,6 @@ public class EmailSchedulerController {
         return ResponseEntity.ok("Get Api Test passed");
     }
 
-    private JobDetail buildJobDetail(EmailRequest scheduleEmailRequest){
-        JobDataMap jobDataMap = new JobDataMap();
-        jobDataMap.put("email", scheduleEmailRequest.getEmail());
-        jobDataMap.put("subject", scheduleEmailRequest.getSubject());
-        jobDataMap.put("body", scheduleEmailRequest.getBody());
 
-        return JobBuilder.newJob(EmailJob.class)
-                .withIdentity(UUID.randomUUID().toString(), "email-jobs")
-                .withDescription("Send email job")
-                .usingJobData(jobDataMap)
-                .storeDurably()
-                .build();
-    }
-
-    private Trigger buildTrigger(JobDetail jobDetail, ZonedDateTime startAt) {
-        return TriggerBuilder.newTrigger()
-                .forJob(jobDetail)
-                .withIdentity(jobDetail.getKey().getName(), "email-triggers")
-                .withDescription("Send email trigger")
-                .startAt(Date.from(startAt.toInstant()))
-                .withSchedule(SimpleScheduleBuilder.simpleSchedule().withMisfireHandlingInstructionFireNow())
-                .build();
-    }
 
 }
